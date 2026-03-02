@@ -1464,6 +1464,8 @@ const customIconSelected = L.divIcon({
 function initMap() {
   leafletMap = L.map('map', { center: [56, 44], zoom: 5, zoomControl: true });
 
+  leafletMap.attributionControl.setPrefix(false); // убирает "Leaflet" (и его иконку/ссылку)
+
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/">OpenStreetMap</a>',
     maxZoom: 18
