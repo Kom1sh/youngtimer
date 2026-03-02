@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Янгтаймер — База знаний и карта специалистов</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0e0e0e;
+      --surface:   #181818;
+      --card:      #1f1f1f;
+      --border:    #2a2a2a;
+      --accent:    #d97706;
+      --accent-lt: #f59e0b;
+      --accent-dk: #92400e;
+      --text:      #e8e4dc;
+      --muted:     #6b6560;
+      --tag-bg:    #2c2218;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── HEADER ──────────────────────────────────── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(14,14,14,.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+    }
+
+    .logo-text {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      color: var(--accent-lt);
+      letter-spacing: .5px;
+    }
+
+    .logo-sub {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-top: -2px;
+    }
+
+    nav {
+      display: flex;
+      gap: 4px;
+      margin-left: auto;
+    }
+
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 20px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: none;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .tab-btn:hover { color: var(--text); background: var(--surface); }
+
+    .tab-btn.active {
+      color: var(--accent-lt);
+      background: var(--tag-bg);
+      border-color: var(--accent-dk);
+    }
+
+    .tab-btn svg { flex-shrink: 0; }
+
+    /* ─── VIEWS ───────────────────────────────────── */
+    .view { display: none; flex: 1; }
+    .view.active { display: flex; flex-direction: column; }
+
+    /* ─── KNOWLEDGE BASE ──────────────────────────── */
+    .kb-hero {
+      background: linear-gradient(135deg, #1a0e00 0%, #0e0e0e 60%);
+      border-bottom: 1px solid var(--border);
+      padding: 56px 24px 48px;
+      text-align: center;
+    }
+
+    .kb-hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(28px, 4vw, 48px);
+      color: var(--accent-lt);
+      margin-bottom: 12px;
+    }
+
+    .kb-hero p {
+      color: var(--muted);
+      font-size: 15px;
+      max-width: 520px;
+      margin: 0 auto 28px;
+      line-height: 1.6;
+    }
+
+    .search-wrap {
+      position: relative;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    .search-wrap svg {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    #search-input {
+      width: 100%;
+      padding: 14px 16px 14px 46px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 15px;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    #search-input:focus { border-color: var(--accent); }
+    #search-input::placeholder { color: var(--muted); }
+
+    .kb-body {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 40px 24px 60px;
+      width: 100%;
+    }
+
+    /* Category filter pills */
+    .category-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 32px;
+    }
+
+    .pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all .2s;
+      white-space: nowrap;
+    }
+
+    .pill:hover { border-color: var(--accent-dk); color: var(--text); }
+    .pill.active { background: var(--tag-bg); border-color: var(--accent); color: var(--accent-lt); }
+
+    /* Article grid */
+    .articles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    .article-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      cursor: pointer;
+      transition: border-color .2s, transform .2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .article-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(217,119,6,.07) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity .3s;
+    }
+
+    .article-card:hover { border-color: var(--accent-dk); transform: translateY(-2px); }
+    .article-card:hover::before { opacity: 1; }
+
+    .article-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      background: var(--tag-bg);
+      border: 1px solid var(--accent-dk);
+      border-radius: 999px;
+      font-size: 11px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      margin-bottom: 12px;
+    }
+
+    .article-card h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      line-height: 1.4;
+      color: var(--text);
+    }
+
+    .article-card p {
+      font-size: 13.5px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .article-meta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .article-meta span { display: flex; align-items: center; gap: 4px; }
+
+    .difficulty {
+      display: flex;
+      gap: 3px;
+      margin-left: auto;
+    }
+
+    .diff-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+
+    .diff-dot.filled { background: var(--accent); }
+
+    /* Modal / Article detail */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.75);
+      z-index: 2000;
+      padding: 24px;
+      overflow-y: auto;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-overlay.open { display: flex; align-items: flex-start; justify-content: center; }
+
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      max-width: 760px;
+      width: 100%;
+      margin: auto;
+      padding: 40px;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: color .2s;
+    }
+
+    .modal-close:hover { color: var(--text); }
+
+    .modal h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 26px;
+      margin-bottom: 8px;
+      line-height: 1.3;
+    }
+
+    .modal-meta { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin-bottom: 24px; flex-wrap: wrap; }
+
+    .modal-body { font-size: 15px; line-height: 1.8; color: #c8c0b4; }
+
+    .modal-body h4 { font-size: 16px; color: var(--text); margin: 20px 0 8px; }
+    .modal-body ul { padding-left: 20px; }
+    .modal-body ul li { margin-bottom: 6px; }
+    .modal-body .warn {
+      background: #1f1500;
+      border-left: 3px solid var(--accent);
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 16px 0;
+      font-size: 13.5px;
+    }
+
+    /* ─── MAP VIEW ────────────────────────────────── */
+    .map-view {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .map-toolbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .map-toolbar-label { font-size: 13px; color: var(--muted); white-space: nowrap; }
+
+    .spec-filter-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .spec-pill {
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--card);
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .spec-pill:hover { border-color: var(--accent-dk); color: var(--text); }
+    .spec-pill.active { background: var(--tag-bg); border-color: var(--accent); color: var(--accent-lt); }
+
+    .map-container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      min-height: 0;
+    }
+
+    /* Sidebar */
+    .specialists-sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-header {
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      z-index: 1;
+    }
+
+    .sidebar-header h3 { font-size: 14px; font-weight: 600; }
+    .sidebar-header span { font-size: 12px; color: var(--muted); }
+
+    .specialist-card {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background .2s;
+    }
+
+    .specialist-card:hover { background: var(--card); }
+    .specialist-card.selected { background: var(--tag-bg); border-left: 3px solid var(--accent); }
+
+    .spec-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+
+    .spec-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+
+    .spec-tag {
+      padding: 2px 8px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .specialist-card.selected .spec-tag {
+      background: var(--surface);
+      border-color: var(--accent-dk);
+      color: var(--accent);
+    }
+
+    .spec-info { font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+    .spec-info span { display: flex; align-items: center; gap: 3px; }
+
+    .spec-rating { color: var(--accent-lt); font-weight: 600; }
+
+    /* Map itself */
+    #map {
+      height: 100%;
+      min-height: 500px;
+      background: #111;
+    }
+
+    /* Leaflet popup custom styles */
+    .leaflet-popup-content-wrapper {
+      background: var(--card) !important;
+      color: var(--text) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 12px !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5) !important;
+    }
+
+    .leaflet-popup-tip { background: var(--card) !important; }
+
+    .popup-name { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+    .popup-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+    .popup-tag {
+      padding: 2px 8px;
+      background: var(--tag-bg);
+      border: 1px solid var(--accent-dk);
+      border-radius: 999px;
+      font-size: 11px;
+      color: var(--accent);
+    }
+    .popup-row { font-size: 13px; color: #a09890; margin-bottom: 3px; }
+    .popup-phone { color: var(--accent-lt); font-weight: 500; }
+
+    /* Demo badge */
+    .demo-badge {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 500;
+      background: rgba(14,14,14,.85);
+      border: 1px solid var(--accent-dk);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--accent);
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      backdrop-filter: blur(6px);
+    }
+
+    .map-wrapper { position: relative; flex: 1; }
+
+    /* ─── RESPONSIVE ──────────────────────────────── */
+    @media (max-width: 768px) {
+      .map-container { grid-template-columns: 1fr; grid-template-rows: 260px 1fr; }
+      .specialists-sidebar { border-right: none; border-bottom: 1px solid var(--border); overflow-y: auto; max-height: 260px; }
+      #map { min-height: 400px; }
+      .header-inner { gap: 16px; }
+      .logo-sub { display: none; }
+    }
+
+    @media (max-width: 520px) {
+      .tab-btn span { display: none; }
+      .tab-btn { padding: 8px 14px; }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+    .no-results {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+      font-size: 15px;
+      grid-column: 1/-1;
+    }
+
+    .no-results svg { margin-bottom: 12px; opacity: .4; }
+  </style>
+</head>
+<body>
+
+<!-- ─── HEADER ───────────────────────────────────────────── -->
+<header>
+  <div class="header-inner">
+    <a class="logo" href="#">
+      <svg class="logo-icon" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="36" height="36" rx="8" fill="#1f1200"/>
+        <path d="M6 22h2l1.5-6h17L28 22h2" stroke="#d97706" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="11" cy="24" r="2.5" stroke="#f59e0b" stroke-width="1.6"/>
+        <circle cx="25" cy="24" r="2.5" stroke="#f59e0b" stroke-width="1.6"/>
+        <path d="M8 16h20M12 16l1.5-4h9L24 16" stroke="#d97706" stroke-width="1.5" stroke-linecap="round"/>
+        <rect x="22" y="13" width="4" height="3" rx="1" fill="#f59e0b" opacity=".6"/>
+      </svg>
+      <div>
+        <div class="logo-text">Янгтаймер</div>
+        <div class="logo-sub">Клуб ретро-авто</div>
+      </div>
+    </a>
+
+    <nav>
+      <button class="tab-btn active" data-view="kb">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+        <span>База знаний</span>
+      </button>
+      <button class="tab-btn" data-view="map">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+        </svg>
+        <span>Карта специалистов</span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<!-- ─── KNOWLEDGE BASE VIEW ──────────────────────────────── -->
+<div class="view active" id="view-kb">
+
+  <div class="kb-hero">
+    <h1>База знаний о ретро-автомобилях</h1>
+    <p>Руководства, советы и техническая документация по обслуживанию и ремонту классических автомобилей и янгтаймеров</p>
+    <div class="search-wrap">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input id="search-input" type="text" placeholder="Поиск по статьям..." autocomplete="off" />
+    </div>
+  </div>
+
+  <div class="kb-body">
+    <div class="category-pills" id="category-pills">
+      <button class="pill active" data-cat="all">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        Все статьи
+      </button>
+      <button class="pill" data-cat="engine">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+        Двигатель
+      </button>
+      <button class="pill" data-cat="transmission">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        Трансмиссия
+      </button>
+      <button class="pill" data-cat="electrical">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Электрика
+      </button>
+      <button class="pill" data-cat="body">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        Кузов
+      </button>
+      <button class="pill" data-cat="suspension">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22V12m0-8v4m-4 4H4m16 0h-4"/><circle cx="12" cy="12" r="2"/></svg>
+        Подвеска
+      </button>
+      <button class="pill" data-cat="brakes">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+        Тормоза
+      </button>
+      <button class="pill" data-cat="interior">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        Интерьер
+      </button>
+    </div>
+
+    <div class="articles-grid" id="articles-grid">
+      <!-- rendered by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- ─── MAP VIEW ─────────────────────────────────────────── -->
+<div class="view" id="view-map">
+  <div class="map-toolbar">
+    <span class="map-toolbar-label">Специализация:</span>
+    <div class="spec-filter-pills" id="spec-filter-pills">
+      <button class="spec-pill active" data-spec="all">Все</button>
+      <button class="spec-pill" data-spec="engine">Двигатель</button>
+      <button class="spec-pill" data-spec="body">Кузов и покраска</button>
+      <button class="spec-pill" data-spec="electrical">Электрика</button>
+      <button class="spec-pill" data-spec="restoration">Реставрация</button>
+      <button class="spec-pill" data-spec="transmission">Трансмиссия</button>
+    </div>
+  </div>
+
+  <div class="map-container">
+    <div class="specialists-sidebar">
+      <div class="sidebar-header">
+        <h3>Специалисты</h3>
+        <span id="spec-count">Загрузка...</span>
+      </div>
+      <div id="specialists-list">
+        <!-- rendered by JS -->
+      </div>
+    </div>
+
+    <div class="map-wrapper">
+      <div class="demo-badge">✦ Демо-режим</div>
+      <div id="map"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── ARTICLE MODAL ────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal-content">
+    <button class="modal-close" id="modal-close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <!-- content injected by JS -->
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+
+/* ══════════════════════════════════════════════════════
+   DATA
+══════════════════════════════════════════════════════ */
+
+const ARTICLES = [
+  {
+    id: 1, cat: 'engine', difficulty: 2,
+    title: 'Регулировка клапанного зазора на карбюраторных двигателях',
+    preview: 'Пошаговое руководство по регулировке тепловых зазоров клапанов на двигателях с чугунной головкой блока. Актуально для ВАЗ, Москвич, Волга.',
+    time: '25 мин', views: '14.2K',
+    content: `
+      <p>Правильный тепловой зазор клапанов — один из ключевых параметров, влияющих на работу двигателя. При увеличенном зазоре появляется характерный стук, при уменьшенном — клапаны перегреваются и могут прогореть.</p>
+      <h4>Необходимый инструмент</h4>
+      <ul>
+        <li>Набор щупов (0,05–0,30 мм)</li>
+        <li>Ключ на 13 (рожковый + накидной)</li>
+        <li>Отвёртка плоская</li>
+        <li>Ключ трещотка с головкой на 36 (для проворота коленвала)</li>
+      </ul>
+      <h4>Порядок регулировки (ВАЗ-2101–07)</h4>
+      <ul>
+        <li>Двигатель холодный — снимите крышку клапанов</li>
+        <li>Установите поршень 1-го цилиндра в ВМТ (метки на шкиве)</li>
+        <li>Щуп 0,15 мм должен проходить с лёгким усилием для впускных, 0,20 мм — для выпускных</li>
+        <li>Регулируйте по схеме 1-3-5-2-4-6 (для 6-цилиндровых) или 1-3-4-2 (4-цилиндровых)</li>
+      </ul>
+      <div class="warn">⚠ Никогда не регулируйте клапаны на горячем двигателе — показания будут неточными из-за теплового расширения металла.</div>
+      <h4>Проверка результата</h4>
+      <p>После регулировки запустите двигатель. Лёгкий цокот в течение 30 секунд — норма. Если стук сохраняется — проверьте ещё раз.</p>
+    `
+  },
+  {
+    id: 2, cat: 'engine', difficulty: 3,
+    title: 'Капитальный ремонт карбюратора К-151',
+    preview: 'Полное руководство по разборке, очистке и восстановлению карбюратора К-151, устанавливавшегося на Волгу ГАЗ-24 и ГАЗ-3110.',
+    time: '40 мин', views: '8.7K',
+    content: `
+      <p>Карбюратор К-151 — двухкамерный, с падающим потоком. Регулярное обслуживание позволяет сохранить его работоспособность на десятилетия.</p>
+      <h4>Признаки необходимости ремонта</h4>
+      <ul>
+        <li>Повышенный расход топлива</li>
+        <li>Трудный холодный пуск</li>
+        <li>Провалы при нажатии на газ</li>
+        <li>Подтёки бензина</li>
+      </ul>
+      <h4>Порядок разборки</h4>
+      <ul>
+        <li>Снимите крышку поплавковой камеры, извлеките поплавок и игольчатый клапан</li>
+        <li>Выверните жиклёры (главный, экономайзера, холостого хода)</li>
+        <li>Промойте все каналы ацетоном или карбклинером под давлением</li>
+        <li>Продуйте сжатым воздухом</li>
+      </ul>
+      <div class="warn">⚠ Ни в коем случае не используйте металлические предметы для прочистки жиклёров — это изменит их пропускную способность.</div>
+      <p>Уровень топлива в поплавковой камере: 21–23 мм. Регулируется подгибанием язычка поплавка.</p>
+    `
+  },
+  {
+    id: 3, cat: 'electrical', difficulty: 1,
+    title: 'Диагностика и замена генератора на советских автомобилях',
+    preview: 'Как проверить исправность генератора мультиметром, определить причину зарядки и правильно подобрать замену для ВАЗ, ГАЗ и УАЗ.',
+    time: '15 мин', views: '21.5K',
+    content: `
+      <p>Генератор — сердце электросистемы. На советских автомобилях устанавливались в основном генераторы переменного тока серий Г-221, Г-222 и их модификации.</p>
+      <h4>Диагностика мультиметром</h4>
+      <ul>
+        <li>Холостой ход: 13,5–14,2 В на клеммах АКБ</li>
+        <li>1500 об/мин с нагрузкой: не ниже 13,0 В</li>
+        <li>Ниже 12,6 В — генератор не заряжает</li>
+      </ul>
+      <h4>Типичные неисправности</h4>
+      <ul>
+        <li>Износ щёток регулятора напряжения (Я-112А)</li>
+        <li>Межвитковое замыкание в обмотке ротора</li>
+        <li>Обрыв обмотки статора</li>
+        <li>Выход из строя диодного моста</li>
+      </ul>
+      <div class="warn">ℹ Щётки и регулятор напряжения — расходники. Меняйте каждые 80–100 тыс. км или при первых признаках нестабильной зарядки.</div>
+    `
+  },
+  {
+    id: 4, cat: 'body', difficulty: 2,
+    title: 'Удаление ржавчины и противокоррозийная обработка',
+    preview: 'Методы борьбы с коррозией кузова: механическая зачистка, преобразователи ржавчины, грунтование и профессиональная антикоррозийная обработка.',
+    time: '35 мин', views: '32.1K',
+    content: `
+      <p>Коррозия — главный враг старых автомобилей. Правильная обработка останавливает распространение ржавчины и защищает кузов на годы вперёд.</p>
+      <h4>Этапы обработки</h4>
+      <ul>
+        <li><strong>Механическая зачистка</strong> — болгарка с проволочным кругом, стальная щётка</li>
+        <li><strong>Преобразователь ржавчины</strong> — нанесите на остаточную ржавчину, выдержите 30–60 мин</li>
+        <li><strong>Грунт-изолятор</strong> — эпоксидный грунт 2К, 2–3 слоя</li>
+        <li><strong>Шпаклёвка и покраска</strong> — по стандартной технологии</li>
+      </ul>
+      <h4>Скрытые полости</h4>
+      <p>Особое внимание уделите порогам, лонжеронам и коробам за задними арками. Обработайте их пушечным салом или ML-средствами через технологические отверстия.</p>
+      <div class="warn">⚠ Сварные швы и стыки панелей — первые очаги коррозии. Обработайте их шовным герметиком до нанесения антигравия.</div>
+    `
+  },
+  {
+    id: 5, cat: 'suspension', difficulty: 2,
+    title: 'Замена шаровых опор и сайлентблоков передней подвески',
+    preview: 'Диагностика износа элементов подвески, инструкция по замене шаровых опор и сайлентблоков поперечных рычагов на автомобилях классической компоновки.',
+    time: '30 мин', views: '18.3K',
+    content: `
+      <p>Шаровые опоры и сайлентблоки — ключевые элементы безопасности. Их своевременная замена предотвращает опасную потерю управляемости.</p>
+      <h4>Признаки износа</h4>
+      <ul>
+        <li>Стук при проезде неровностей</li>
+        <li>Увод автомобиля в сторону</li>
+        <li>Неравномерный износ шин</li>
+        <li>Люфт в шаровой при покачивании колеса</li>
+      </ul>
+      <h4>Порядок замены (ВАЗ классика)</h4>
+      <ul>
+        <li>Поднимите автомобиль, снимите колесо</li>
+        <li>Открутите гайку пальца шаровой, выбейте палец съёмником</li>
+        <li>Открутите болты крепления опоры к рычагу (3 болта М10)</li>
+        <li>Установите новую опору, затяните моменты по инструкции</li>
+      </ul>
+      <div class="warn">⚠ После замены шаровых и сайлентблоков обязательно сделайте развал-схождение на стенде.</div>
+    `
+  },
+  {
+    id: 6, cat: 'transmission', difficulty: 3,
+    title: 'Диагностика и ремонт механической КПП советских автомобилей',
+    preview: 'Как определить неисправность КПП по характерным симптомам, разобрать и восстановить коробку передач ВАЗ-2101 / 2107 своими силами.',
+    time: '60 мин', views: '11.4K',
+    content: `
+      <p>Механическая КПП советских автомобилей при правильном уходе служит очень долго. Наиболее частые проблемы связаны с синхронизаторами и вилками переключения.</p>
+      <h4>Симптомы неисправностей</h4>
+      <ul>
+        <li>Хруст при включении передачи — износ синхронизатора</li>
+        <li>Самовыключение передачи — износ зубьев муфты</li>
+        <li>Затруднённое переключение — деформация вилки или потеря смазки</li>
+        <li>Вой и гул — разрушение подшипника</li>
+      </ul>
+      <h4>Масло в КПП</h4>
+      <p>Применяйте трансмиссионное масло GL-4, SAE 75W-90. Менять каждые 60 000 км или раз в 3 года. Объём КПП ВАЗ-классика — 1,35 л.</p>
+      <div class="warn">⚠ Не используйте GL-5 в КПП с латунными синхронизаторами — агрессивные присадки разрушают цветной металл.</div>
+    `
+  },
+  {
+    id: 7, cat: 'brakes', difficulty: 1,
+    title: 'Замена тормозной жидкости и прокачка тормозов',
+    preview: 'Периодичность замены, выбор типа жидкости (DOT 3/4/5.1), правильная прокачка тормозной системы без помощника — пошаговая инструкция.',
+    time: '20 мин', views: '27.8K',
+    content: `
+      <p>Тормозная жидкость гигроскопична — поглощает влагу из воздуха. Это снижает температуру кипения и может привести к отказу тормозов. Меняйте каждые 2 года или 40 000 км.</p>
+      <h4>Выбор жидкости</h4>
+      <ul>
+        <li><strong>DOT 3</strong> — для старых систем с барабанными тормозами</li>
+        <li><strong>DOT 4</strong> — универсальный современный стандарт</li>
+        <li><strong>DOT 5</strong> — силиконовая, не смешивать с DOT 3/4!</li>
+      </ul>
+      <h4>Прокачка без помощника</h4>
+      <ul>
+        <li>Используйте обратный клапан (нипплер) на штуцер суппорта</li>
+        <li>Начинайте с самого дальнего колеса (правое заднее)</li>
+        <li>Нажимайте педаль 5–6 раз, затем удерживайте нажатой</li>
+        <li>Открутите штуцер на ½ оборота, дождитесь выхода пузырьков, закрутите</li>
+      </ul>
+      <div class="warn">ℹ Держите уровень в бачке выше MIN — иначе завоздушите всю систему заново.</div>
+    `
+  },
+  {
+    id: 8, cat: 'interior', difficulty: 1,
+    title: 'Реставрация сидений и восстановление обивки дверей',
+    preview: 'Технология восстановления велюровой, кожаной и дерматиновой обивки салона. Выбор материалов, замена поролона, перетяжка сидений своими руками.',
+    time: '45 мин', views: '9.2K',
+    content: `
+      <p>Реставрация салона — важнейшая часть восстановления янгтаймера. Правильный выбор материалов сохраняет историческую аутентичность автомобиля.</p>
+      <h4>Материалы</h4>
+      <ul>
+        <li><strong>Дерматин (кожзам)</strong> — для советских автомобилей, ищите с тиснением «под кожу»</li>
+        <li><strong>Велюр</strong> — для ГАЗ-24 «Волга», Москвич-2140</li>
+        <li><strong>Поролон</strong> — HSF 35 (плотность 35 кг/м³) для подушек, HR 40 для спинок</li>
+      </ul>
+      <h4>Перетяжка сиденья</h4>
+      <ul>
+        <li>Снимите обивку, зафиксировав места крепления скоб</li>
+        <li>Замените поролон, вырезав его по шаблону старого</li>
+        <li>Раскройте новый материал с запасом 5 см по всем сторонам</li>
+        <li>Натяните равномерно, фиксируйте мебельным степлером</li>
+      </ul>
+      <div class="warn">ℹ Для аутентичных реставраций ищите оригинальные ткани у клубных поставщиков — многие производители возобновили выпуск исторических материалов.</div>
+    `
+  },
+  {
+    id: 9, cat: 'electrical', difficulty: 2,
+    title: 'Система зажигания: от контактного к электронному',
+    preview: 'Сравнение контактного и бесконтактного зажигания, установка электронного коммутатора, настройка угла опережения зажигания для оптимальной работы двигателя.',
+    time: '30 мин', views: '16.9K',
+    content: `
+      <p>Переход с контактного на бесконтактное зажигание — одна из наиболее рекомендуемых модернизаций для старых автомобилей. Улучшается пуск, снижается расход топлива, не нужно регулировать зазор контактов.</p>
+      <h4>Комплект бесконтактного зажигания</h4>
+      <ul>
+        <li>Электронный коммутатор (131.3734)</li>
+        <li>Датчик Холла с экраном (бегунок)</li>
+        <li>Крышка распределителя новая</li>
+        <li>Высоковольтные провода (силикон 7–8 мм)</li>
+      </ul>
+      <h4>Угол опережения зажигания</h4>
+      <p>Для АИ-80: +3..+5° до ВМТ. Для АИ-92: +5..+8°. Проверяйте стробоскопом на оборотах холостого хода (800–900 об/мин), вакуумный шланг снят.</p>
+      <div class="warn">⚠ Неправильно выставленный угол зажигания вызывает детонацию («пинки») и прогар поршней. Проверяйте после любых работ с зажиганием.</div>
+    `
+  },
+  {
+    id: 10, cat: 'body', difficulty: 3,
+    title: 'Сварка кузова: ремонт порогов и арок',
+    preview: 'Технология ремонта сгнивших порогов и арок полуавтоматической сваркой. Подготовка металла, подбор ремонтных вставок, сварочные технологии для тонкого листа.',
+    time: '55 мин', views: '22.6K',
+    content: `
+      <p>Сварка кузовного металла — наиболее эффективный способ борьбы с коррозионными повреждениями. Правильно выполненный шов прочнее заплатки из стекловолокна и долговечнее любой шпаклёвки.</p>
+      <h4>Оборудование</h4>
+      <ul>
+        <li>Полуавтомат MIG/MAG (от 130А для кузовных работ)</li>
+        <li>Проволока 0,6 мм ER70S-6</li>
+        <li>Газ CO₂ или смесь Ar/CO₂ (75/25)</li>
+        <li>Ремонтные пороги или листовой металл 0,8–1,0 мм</li>
+      </ul>
+      <h4>Важные принципы</h4>
+      <ul>
+        <li>Вырезайте металл с запасом до здорового места</li>
+        <li>Варите точками через 30–50 мм, давая остывать — исключает деформацию</li>
+        <li>Сразу грунтуйте с обоих сторон шва</li>
+      </ul>
+      <div class="warn">⚠ Проверьте геометрию кузова по диагоналям перед сваркой силовых элементов — варить можно только при правильной геометрии.</div>
+    `
+  },
+];
+
+const SPECIALISTS = [
+  { id:1, name:'Сергей Волков', specs:['engine','transmission'], city:'Москва', addr:'ул. Автозаводская, 17', phone:'+7 (916) 234-56-78', rating:4.9, exp:22, lat:55.705, lng:37.661 },
+  { id:2, name:'Мастерская «Ретро-Гараж»', specs:['restoration','body'], city:'Москва', addr:'Варшавское ш., 73', phone:'+7 (495) 777-12-34', rating:4.8, exp:15, lat:55.635, lng:37.605 },
+  { id:3, name:'Андрей Миронов', specs:['electrical','engine'], city:'Москва', addr:'Дмитровское ш., 34к2', phone:'+7 (926) 111-55-99', rating:4.7, exp:18, lat:55.870, lng:37.564 },
+  { id:4, name:'Клуб «Советский Автомобиль»', specs:['restoration','engine','transmission'], city:'Санкт-Петербург', addr:'пр. Стачек, 15', phone:'+7 (812) 333-44-55', rating:5.0, exp:30, lat:59.883, lng:30.252 },
+  { id:5, name:'Виктор Сидоров', specs:['body','restoration'], city:'Санкт-Петербург', addr:'Московский пр., 212', phone:'+7 (921) 765-43-21', rating:4.6, exp:12, lat:59.840, lng:30.321 },
+  { id:6, name:'Ателье «Патина»', specs:['body','interior'], city:'Нижний Новгород', addr:'ул. Белинского, 88', phone:'+7 (831) 222-88-11', rating:4.8, exp:10, lat:56.326, lng:44.006 },
+  { id:7, name:'Дмитрий Крылов', specs:['engine','transmission'], city:'Екатеринбург', addr:'ул. Малышева, 100', phone:'+7 (912) 456-78-90', rating:4.7, exp:20, lat:56.835, lng:60.615 },
+  { id:8, name:'Garage Classic', specs:['restoration','electrical','engine'], city:'Казань', addr:'пр. Победы, 56', phone:'+7 (843) 500-33-22', rating:4.9, exp:14, lat:55.796, lng:49.106 },
+  { id:9, name:'Леонид Фомин', specs:['transmission','engine'], city:'Краснодар', addr:'ул. Северная, 45', phone:'+7 (918) 321-67-89', rating:4.5, exp:17, lat:45.041, lng:38.984 },
+  { id:10, name:'РетроМастер', specs:['body','restoration'], city:'Самара', addr:'ул. Ново-Садовая, 106', phone:'+7 (846) 777-55-33', rating:4.8, exp:25, lat:53.195, lng:50.145 },
+  { id:11, name:'Иван Громов', specs:['electrical'], city:'Новосибирск', addr:'Красный пр., 180', phone:'+7 (913) 888-22-77', rating:4.6, exp:9, lat:55.030, lng:82.921 },
+  { id:12, name:'Классик-Сервис', specs:['engine','body','transmission'], city:'Воронеж', addr:'Московский пр., 11', phone:'+7 (473) 234-56-12', rating:4.7, exp:16, lat:51.671, lng:39.213 },
+];
+
+const SPEC_LABELS = { engine:'Двигатель', body:'Кузов и покраска', electrical:'Электрика', restoration:'Реставрация', transmission:'Трансмиссия', interior:'Интерьер' };
+const CAT_LABELS = { engine:'Двигатель', transmission:'Трансмиссия', electrical:'Электрика', body:'Кузов', suspension:'Подвеска', brakes:'Тормоза', interior:'Интерьер' };
+
+/* ══════════════════════════════════════════════════════
+   TAB SWITCHING
+══════════════════════════════════════════════════════ */
+
+const tabBtns = document.querySelectorAll('.tab-btn');
+const views = { kb: document.getElementById('view-kb'), map: document.getElementById('view-map') };
+let mapInitialized = false;
+
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    tabBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const which = btn.dataset.view;
+    Object.values(views).forEach(v => v.classList.remove('active'));
+    views[which].classList.add('active');
+    if (which === 'map' && !mapInitialized) { initMap(); mapInitialized = true; }
+  });
+});
+
+/* ══════════════════════════════════════════════════════
+   KNOWLEDGE BASE
+══════════════════════════════════════════════════════ */
+
+let currentCat = 'all';
+let searchQuery = '';
+
+function renderArticles() {
+  const grid = document.getElementById('articles-grid');
+  const filtered = ARTICLES.filter(a => {
+    const matchCat = currentCat === 'all' || a.cat === currentCat;
+    const q = searchQuery.toLowerCase();
+    const matchQ = !q || a.title.toLowerCase().includes(q) || a.preview.toLowerCase().includes(q);
+    return matchCat && matchQ;
+  });
+
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="no-results">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <div>Ничего не найдено</div>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(a => {
+    const dots = [1,2,3].map(i => `<div class="diff-dot${i <= a.difficulty ? ' filled' : ''}"></div>`).join('');
+    return `
+    <div class="article-card" data-id="${a.id}">
+      <div class="article-tag">${CAT_LABELS[a.cat] || a.cat}</div>
+      <h3>${a.title}</h3>
+      <p>${a.preview}</p>
+      <div class="article-meta">
+        <span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          ${a.time}
+        </span>
+        <span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          ${a.views}
+        </span>
+        <div class="difficulty" title="Сложность">${dots}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  grid.querySelectorAll('.article-card').forEach(card => {
+    card.addEventListener('click', () => openArticle(+card.dataset.id));
+  });
+}
+
+// Category pills
+document.getElementById('category-pills').addEventListener('click', e => {
+  const pill = e.target.closest('.pill');
+  if (!pill) return;
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  currentCat = pill.dataset.cat;
+  renderArticles();
+});
+
+// Search
+document.getElementById('search-input').addEventListener('input', e => {
+  searchQuery = e.target.value;
+  renderArticles();
+});
+
+// Modal
+function openArticle(id) {
+  const a = ARTICLES.find(x => x.id === id);
+  if (!a) return;
+  const dots = [1,2,3].map(i => `<div class="diff-dot${i <= a.difficulty ? ' filled' : ''}"></div>`).join('');
+  document.getElementById('modal-content').innerHTML = `
+    <button class="modal-close" id="modal-close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="article-tag" style="margin-bottom:16px">${CAT_LABELS[a.cat] || a.cat}</div>
+    <h2>${a.title}</h2>
+    <div class="modal-meta">
+      <span>⏱ ${a.time} чтения</span>
+      <span>👁 ${a.views} просмотров</span>
+      <span style="display:flex;align-items:center;gap:6px">Сложность: <span class="difficulty">${dots}</span></span>
+    </div>
+    <div class="modal-body">${a.content}</div>
+  `;
+  document.getElementById('modal-overlay').classList.add('open');
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+}
+
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+renderArticles();
+
+/* ══════════════════════════════════════════════════════
+   MAP
+══════════════════════════════════════════════════════ */
+
+let leafletMap, markersLayer, currentSpecFilter = 'all';
+const markerRefs = {};
+
+function initMap() {
+  leafletMap = L.map('map', { center: [56, 44], zoom: 5, zoomControl: true });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/">OpenStreetMap</a>',
+    maxZoom: 18
+  }).addTo(leafletMap);
+
+  markersLayer = L.layerGroup().addTo(leafletMap);
+  renderSpecialists();
+}
+
+const customIcon = L.divIcon({
+  html: `<svg width="28" height="36" viewBox="0 0 28 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22S28 24.5 28 14C28 6.27 21.73 0 14 0z" fill="#d97706"/>
+    <circle cx="14" cy="14" r="6" fill="#fff" fill-opacity=".2"/>
+    <circle cx="14" cy="14" r="3" fill="#fff"/>
+  </svg>`,
+  className: '',
+  iconSize: [28, 36],
+  iconAnchor: [14, 36],
+  popupAnchor: [0, -36]
+});
+
+const customIconSelected = L.divIcon({
+  html: `<svg width="34" height="44" viewBox="0 0 28 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M14 0C6.27 0 0 6.27 0 14c0 10.5 14 22 14 22S28 24.5 28 14C28 6.27 21.73 0 14 0z" fill="#f59e0b"/>
+    <circle cx="14" cy="14" r="6" fill="#fff" fill-opacity=".3"/>
+    <circle cx="14" cy="14" r="3" fill="#fff"/>
+  </svg>`,
+  className: '',
+  iconSize: [34, 44],
+  iconAnchor: [17, 44],
+  popupAnchor: [0, -44]
+});
+
+function renderSpecialists() {
+  markersLayer.clearLayers();
+  Object.keys(markerRefs).forEach(k => delete markerRefs[k]);
+
+  const filtered = SPECIALISTS.filter(s =>
+    currentSpecFilter === 'all' || s.specs.includes(currentSpecFilter)
+  );
+
+  document.getElementById('spec-count').textContent = `${filtered.length} специалистов`;
+
+  // Sidebar
+  const list = document.getElementById('specialists-list');
+  list.innerHTML = filtered.map(s => {
+    const tags = s.specs.map(sp => `<span class="spec-tag">${SPEC_LABELS[sp]||sp}</span>`).join('');
+    return `
+    <div class="specialist-card" data-id="${s.id}">
+      <div class="spec-name">${s.name}</div>
+      <div class="spec-tags">${tags}</div>
+      <div class="spec-info">
+        <span>📍 ${s.city}</span>
+        <span class="spec-rating">★ ${s.rating}</span>
+        <span>Опыт: ${s.exp} лет</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.specialist-card').forEach(card => {
+    card.addEventListener('click', () => selectSpecialist(+card.dataset.id));
+  });
+
+  // Markers
+  filtered.forEach(s => {
+    const marker = L.marker([s.lat, s.lng], { icon: customIcon })
+      .addTo(markersLayer)
+      .bindPopup(buildPopup(s), { maxWidth: 280 });
+
+    marker.on('click', () => {
+      selectSpecialist(s.id, false);
+    });
+
+    markerRefs[s.id] = marker;
+  });
+}
+
+function buildPopup(s) {
+  const tags = s.specs.map(sp => `<span class="popup-tag">${SPEC_LABELS[sp]||sp}</span>`).join('');
+  return `
+    <div class="popup-name">${s.name}</div>
+    <div class="popup-tags">${tags}</div>
+    <div class="popup-row">📍 ${s.city}, ${s.addr}</div>
+    <div class="popup-row">★ ${s.rating} · Опыт ${s.exp} лет</div>
+    <div class="popup-row popup-phone">📞 ${s.phone}</div>
+  `;
+}
+
+let selectedId = null;
+
+function selectSpecialist(id, panTo = true) {
+  if (selectedId && markerRefs[selectedId]) markerRefs[selectedId].setIcon(customIcon);
+  selectedId = id;
+
+  document.querySelectorAll('.specialist-card').forEach(c => {
+    c.classList.toggle('selected', +c.dataset.id === id);
+  });
+
+  const marker = markerRefs[id];
+  if (marker) {
+    marker.setIcon(customIconSelected);
+    marker.openPopup();
+    if (panTo && leafletMap) {
+      const s = SPECIALISTS.find(x => x.id === id);
+      if (s) leafletMap.setView([s.lat, s.lng], 12, { animate: true });
+    }
+  }
+
+  // scroll sidebar card into view
+  const card = document.querySelector(`.specialist-card[data-id="${id}"]`);
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Spec filter
+document.getElementById('spec-filter-pills').addEventListener('click', e => {
+  const pill = e.target.closest('.spec-pill');
+  if (!pill) return;
+  document.querySelectorAll('.spec-pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  currentSpecFilter = pill.dataset.spec;
+  selectedId = null;
+  if (mapInitialized) renderSpecialists();
+});
+
+</script>
+</body>
+</html>
